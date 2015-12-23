@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="viewport" content="user-scalable=yes, initial-scale=1, maximum-scale=1, minimum-scale=1, target-densitydpi=device-dpi" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    <link rel="stylesheet" href="reset.css"/>
+</head>
+<body>
+<style>
+    body {
+        background-color: #f8f8f8;
+    }
+    .centerText {
+        text-align: center;
+        font-weight: bold;
+        font-size: 2em;
+        color: #333;
+        margin-top: 25px;
+    }
+    .countdown {
+        text-align: center;
+        margin-top: 25px;
+    }
+    .counterOuter {
+        display: inline-block;
+        margin-left: 20px;
+    }
+    .counterBlock {
+        display: block;
+        border: 2px solid #333;
+        border-radius: 15px;
+        overflow: hidden;
+    }
+    .digitBlock {
+        display: inline-block;
+        position: relative;
+        margin: 0 5px;
+    }
+    .digitBlock.tick {
+        transform: translate(0, 100%);
+        transition: transform 0.5s;
+    }
+    .digit {
+        font-size: 5em;
+        display: inline-block;
+    }
+    .digit.upper {
+        position: absolute;
+        top: -100%;
+        left: 0;
+    }
+    .label {
+        text-align: center;
+    }
+    .imageHolder {
+        margin-top: 25px;
+        text-align: center;
+    }
+    img {
+        border: 2px #eee solid;
+        border-radius: 15px;
+        box-shadow: 0px 0px 60px -15px;
+    }
+</style>
+    <div class="centerText">
+        До поездки осталось
+    </div>
+    <div class="countdown" name="countdown"></div>
+    <div class="imageHolder">
+        <img src="map.jpeg"/>
+    </div>
+
+<script>
+    var Counter = function(config) {
+        this.ready = false;
+        this.holder = document.querySelector(config.selector);
+        if (!this.holder) { return; }
+        this.ready = true;
+
+        this.config = config || {};
+
+        this._render();
+    };
+
+    Counter.prototype = {
+
+        _build: {
+            digitBlock: function(classNames) {
+                var block = document.createElement("div");
+                block.className = "digitBlock " + classNames;
+                return block;
+            },
+            digit: function(value) {
+                var digit = document.createElement("div");
+                digit.innerHTML = value;
+                return digit;
+            },
+            upperDigit: function(value) {
+                var digit = this.digit(value);
+                digit.className = "digit upper";
+                return digit;
+            },
+            bottomDigit: function(value) {
+                var digit = this.digit(value);
+                digit.className = "digit bottom";
+                return digit;
+            }
+        },
+
+        _clearNode: function(node) {
+            while (node.childNodes.length) {
+                node.removeChild(node.childNodes[0]);
+            }
+        },
+
+        _render: function() {
+
+            this._clearNode(this.holder);
+
+            // get digits
+            var currentValue = this.config.value;
+            var nextValue = currentValue - 1;
+            if (nextValue < 0) {
+                nextValue = this.config.maxValue;
+            }
+
+            var leftBottomDigit = Math.floor(currentValue / 10);
+            var rightBottomDigit = currentValue % 10;
+            var leftUpperDigit = Math.floor(nextValue / 10);
+            var rightUpperDigit = nextValue % 10;
+
+            this.leftDigitBlock = this._build.digitBlock("left");
+            this.rightDigitBlock = this._build.digitBlock("right");
+
+            this.leftDigitBlock.appendChild(this._build.upperDigit(leftUpperDigit));
+            this.leftDigitBlock.appendChild(this._build.bottomDigit(leftBottomDigit));
+
+            this.rightDigitBlock.appendChild(this._build.upperDigit(rightUpperDigit));
+            this.rightDigitBlock.appendChild(this._build.bottomDigit(rightBottomDigit));
+
+            this.holder.appendChild(this.leftDigitBlock);
+            this.holder.appendChild(this.rightDigitBlock);
+        },
+
+        startTicking: function() {
+            if (!this.ready) { return;}
+            setInterval(this.tick.bind(this), 1000);
+        },
+
+        tick: function() {
+
+            if (this.config.value === 0) {
+
+                if (this.config.value === this.config.minValue) {
+                    // it means we can't overflow the counter
+                    return false;
+                }
+
+                if (this.config.dependentCounter) {
+                    var rc = this.config.dependentCounter.tick();
+                    if (rc === false) {
+                        // this means the dependent counter was not able to tick
+                        // and this means we should stop ourself
+                        return false;
+                    }
+                }
+            }
+
+            this.config.value--;
+
+            if (this.config.value < 0) {
+                this.config.value = this.config.maxValue;
+            }
+
+            setTimeout(this._visualizeTick.bind(this), 10);
+
+            return true;
+        },
+
+        _visualizeTick: function() {
+            this.rightDigitBlock.className = this.rightDigitBlock.className + " tick";
+
+            var rightBottomDigit = this.config.value % 10;
+            var maxRightValue = this.config.maxValue % 10;
+
+            if (rightBottomDigit === maxRightValue) {
+                this.leftDigitBlock.className = this.leftDigitBlock.className + " tick";
+            }
+
+            setTimeout(this._render.bind(this), 700);
+        }
+    };
+
+    var CountDown = function(config) {
+        this.config = config || {};
+
+        this.holder = document.querySelector(this.config.holderSelector);
+        if (this.holder === null) {
+            return;
+        }
+
+        this._render();
+    };
+    CountDown.prototype = {
+
+        _render: function() {
+            var template = `
+                <div class="counterOuter">
+                    <div class="days counterBlock" name="days"></div>
+                    <div class="label">дней</div>
+                </div>
+                <div class="counterOuter">
+                    <div class="hours counterBlock" name="hours"></div>
+                    <div class="label">часов</div>
+                </div>
+                <div class="counterOuter">
+                    <div class="minutes counterBlock" name="minutes"></div>
+                    <div class="label">минут</div>
+                </div>
+                <div class="counterOuter">
+                    <div class="seconds counterBlock" name="seconds"></div>
+                    <div class="label">секунд</div>
+                </div>
+            `;
+
+            this.holder.innerHTML = template;
+        },
+
+        start: function() {
+            var dVal = 0, hVal = 0, mVal = 0, sVal = 0, doLaunch = false;
+
+            var currentTime = Math.floor((new Date()).getTime() / 1000);
+            var diff = this.config.endTime - currentTime;
+
+            if (diff > 0) {
+                sVal = diff % 60;
+                diff = Math.floor(diff / 60);
+
+                mVal = diff % 60;
+                diff = Math.floor(diff / 60);
+
+                hVal = diff % 24;
+                diff = Math.floor(diff / 24);
+
+                dVal = diff;
+
+                doLaunch = true;
+            }
+
+            var days = new Counter({selector: "[name=days]", value: dVal, maxValue: 99, minValue: 0});
+            var hours = new Counter({selector: "[name=hours]", value: hVal, maxValue: 23, dependentCounter: days});
+            var minutes = new Counter({selector: "[name=minutes]", value: mVal, maxValue: 59, dependentCounter: hours});
+            var seconds = new Counter({selector: "[name=seconds]", value: sVal, maxValue: 59, dependentCounter: minutes});
+
+            if (doLaunch) {
+                seconds.startTicking();
+            }
+        }
+    };
+
+    document.addEventListener("DOMContentLoaded", function() {
+
+        var timeToGo = 1451966400;
+
+        var countDown = new CountDown({
+            holderSelector: "[name=countdown]",
+            endTime: timeToGo
+        });
+
+        countDown.start();
+    });
+</script>
+</body>
+</html>
